@@ -108,15 +108,62 @@ def init_users_table():
 init_users_table()
 # inserting information into users table
 
-# @app.route("/users", method=["GET","POST","PATCH"])
-# def user_registration():
-#     response = {}
-#
-#     if request.method == "GET":
-#         with sqlite3.connect("SMP.db") as conn:
-#             conn.row_factory = dict_factory
-#             cursor = conn.cursor()
-#             cursor.execute("SELECT * FROM users")
+
+@app.route("/users/", methods=["GET", "POST", "PATCH"])
+def user_registration():
+    response = {}
+    # fetches all users
+    if request.method == "GET":
+        with sqlite3.connect("SMP.db") as conn:
+            conn.row_factory = dict_factory
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users")
+            users = cursor.fetchall()
+
+        response['status_code'] = 201
+        response['data'] = users
+        return response
+
+    # login
+    if request.method == "PATCH":
+        email = request.json["email"]
+        password = request.json["password"]
+
+        with sqlite3.connect("SMP.db") as conn:
+            conn.row_factory = dict_factory
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users WHERE email=?AND password=?", (email, password))
+            user = cursor.fetchone()
+
+        response['status_code'] = 201
+        response['data'] = user
+        response['message'] = 'Successfully logged In'
+        return response
+
+    # Register
+    if request.method == "POST":
+        try:
+            name = request.json['name']
+            surname = request.json['surname']
+            password = request.json['password']
+            email = request.json['email']
+            location_id = request.json['location_id']
+
+            with sqlite3.connect('SMP.db') as conn:
+                cursor = conn.cursor()
+                cursor.execute("INSERT INTO users("
+                               "name,"
+                               "surname,"
+                               "password,"
+                               "email,"
+                               "location_id) VALUES(?, ?, ?, ?, ?)", (name, surname, password, email, location_id))
+                conn.commit()
+                response['message'] = "successfully added new user to database"
+                response['status_code'] = 201
+            return response
+        except ValueError:
+            response['status_code'] = 401
+            response['message'] = "Failed to load user into database"
 
 
 
