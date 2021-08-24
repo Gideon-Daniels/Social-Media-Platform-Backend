@@ -1,18 +1,52 @@
 import hmac
+import re
 import smtplib
 import sqlite3
 from flask import Flask, request, jsonify
 from flask_jwt import JWT, jwt_required, current_identity
 from flask_cors import CORS
-from flask_mail import Mail, Message
-import pymysql
+import cloudinary
+import cloudinary.uploader
 
 
+# Global functions
 def dict_factory(cursor, row):
     d = {}
     for idx, col in enumerate(cursor.description):
-        d[col[0]] = row [idx]
+        d[col[0]] = row[idx]
     return d
+
+
+def validate_email(email):
+    regex = '^(\w|\.|\_|\-)+[@](\w|\_|\-|\.)+[.]\w{2,3}$'
+
+    if re.search(regex, email):
+        return True
+    else:
+        return False
+
+
+def upload_file():
+    app.logger.info('upload in route')
+    cloudinary.config(
+        cloud_name='dnuer7lrl',
+        api_key='938329564673713',
+        api_secret='8yTINboBmMjlnbV54kt4ILtVdZM'
+    )
+    upload_results = None
+    if request.method == 'POST' or request.method == 'PUT' or request.method == 'GET':
+        image = request.json['image']
+        app.logger.info('%s image_to_upload', image)
+        if image:
+            upload_results = cloudinary.uploader.upload(image)
+            app.logger.info(upload_results)
+            return upload_results['url']
+        else:
+            message = "This is not an image"
+            return message
+    else:
+        message = "wrong method is being used"
+        return message
 
 
 # Function to create locations table
@@ -91,6 +125,22 @@ def locations():
     return response
 
 
+@app.route("/location/<int:location_id>", methods=["GET"])
+def get_location(location_id):
+    response = {}
+    with sqlite3.connect("SMP.db") as conn:
+        conn.row_factory = dict_factory
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM locations WHERE location_id=" + str(location_id))
+
+        location = cursor.fetchone()
+
+        response['status_code'] = 201
+        response['data'] = location
+        response['message'] = "Location retrieved successfully."
+        return response
+
+
 # creating users table
 def init_users_table():
     with sqlite3.connect("SMP.db") as conn:
@@ -106,6 +156,8 @@ def init_users_table():
 
 
 init_users_table()
+
+
 # inserting information into users table
 
 
@@ -148,19 +200,22 @@ def user_registration():
             password = request.json['password']
             email = request.json['email']
             location_id = request.json['location_id']
-
-            with sqlite3.connect('SMP.db') as conn:
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO users("
-                               "name,"
-                               "surname,"
-                               "password,"
-                               "email,"
-                               "location_id) VALUES(?, ?, ?, ?, ?)", (name, surname, password, email, location_id))
-                conn.commit()
-                response['message'] = "successfully added new user to database"
-                response['status_code'] = 201
-            return response
+            if validate_email(email):
+                with sqlite3.connect('SMP.db') as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("INSERT INTO users("
+                                   "name,"
+                                   "surname,"
+                                   "password,"
+                                   "email,"
+                                   "location_id) VALUES(?, ?, ?, ?, ?)", (name, surname, password, email, location_id))
+                    conn.commit()
+                    response['message'] = "successfully added new user to database"
+                    response['status_code'] = 201
+                return response
+            else:
+                response['status_code'] = 402
+                response['message'] = "Please enter valid email"
         except ValueError:
             response['status_code'] = 401
             response['message'] = "Failed to load user into database"
@@ -172,29 +227,13 @@ def get_user(user_id):
     with sqlite3.connect("SMP.db") as conn:
         conn.row_factory = dict_factory
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE user_id="+ str(user_id))
+        cursor.execute("SELECT * FROM users WHERE user_id=" + str(user_id))
 
         user = cursor.fetchone()
 
         response['status_code'] = 201
         response['data'] = user
         response['message'] = "User retrieved successfully."
-        return response
-
-
-@app.route("/location/<int:location_id>", methods=["GET"])
-def get_location(location_id):
-    response = {}
-    with sqlite3.connect("SMP.db") as conn:
-        conn.row_factory = dict_factory
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM locations WHERE location_id="+str(location_id))
-
-        location = cursor.fetchone()
-
-        response['status_code'] = 201
-        response['data'] = location
-        response['message'] = "Location retrieved successfully."
         return response
 
 
