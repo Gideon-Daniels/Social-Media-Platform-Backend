@@ -182,7 +182,7 @@ def get_user(user_id):
         return response
 
 
-@app.route("/location/<int:location_id", methods=["GET"])
+@app.route("/location/<int:location_id>", methods=["GET"])
 def get_location(location_id):
     response = {}
     with sqlite3.connect("SMP.db") as conn:
