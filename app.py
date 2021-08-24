@@ -166,6 +166,37 @@ def user_registration():
             response['message'] = "Failed to load user into database"
 
 
+@app.route("/user/<int:user_id>", methods=["GET"])
+def get_user(user_id):
+    response = {}
+    with sqlite3.connect("SMP.db") as conn:
+        conn.row_factory = dict_factory
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE user_id="+ str(user_id))
+
+        user = cursor.fetchone()
+
+        response['status_code'] = 201
+        response['data'] = user
+        response['message'] = "User retrieved successfully."
+        return response
+
+
+@app.route("/location/<int:location_id", methods=["GET"])
+def get_location(location_id):
+    response = {}
+    with sqlite3.connect("SMP.db") as conn:
+        conn.row_factory = dict_factory
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM locations WHERE location_id="+str(location_id))
+
+        location = cursor.fetchone()
+
+        response['status_code'] = 201
+        response['data'] = location
+        response['message'] = "Location retrieved successfully."
+        return response
+
 
 if __name__ == "__main__":
     app.run()
