@@ -48,8 +48,8 @@ def upload_file():
         message = "wrong method is being used"
         return message
 
-
-# Function to create locations table
+# ---------------------------------------------Creating Tables---------------------------------------------------------
+# Functions to create locations table
 def init_locations_table():
     conn = sqlite3.connect('SMP.db')
     print("Opened database successfully")
@@ -68,11 +68,29 @@ def init_locations_table():
 
 init_locations_table()
 
+
+# creating users table
+def init_users_table():
+    with sqlite3.connect("SMP.db") as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS users("
+                     "user_id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                     "name,"
+                     "surname,"
+                     "password,"
+                     "email,"
+                     "location_id,"
+                     "FOREIGN KEY (location_id) REFERENCES locations(location_id))")
+        print("users table created successfully")
+
+
+init_users_table()
+
+# ----------------------------------------------------- API SETUP------------------------------------------------------
 app = Flask(__name__)
 CORS(app)
 app.debug = True
 
-
+# -------------------------------------------------------ROUTES--------------------------------------------------------
 @app.route('/', methods=["GET"])
 def welcome():
     response = {}
@@ -82,7 +100,7 @@ def welcome():
         return response
 
 
-# inserting information into table locations
+# ---------------------------------------locations route---------------------------------------------------------
 @app.route('/locations/', methods=["POST", "GET"])
 def locations():
     response = {}
@@ -141,26 +159,7 @@ def get_location(location_id):
         return response
 
 
-# creating users table
-def init_users_table():
-    with sqlite3.connect("SMP.db") as conn:
-        conn.execute("CREATE TABLE IF NOT EXISTS users("
-                     "user_id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                     "name,"
-                     "surname,"
-                     "password,"
-                     "email,"
-                     "location_id,"
-                     "FOREIGN KEY (location_id) REFERENCES locations(location_id))")
-        print("users table created successfully")
-
-
-init_users_table()
-
-
-# inserting information into users table
-
-
+# -------------------------------------------------Users route----------------------------------------------------
 @app.route("/users/", methods=["GET", "POST", "PATCH"])
 def user_registration():
     response = {}
@@ -221,20 +220,40 @@ def user_registration():
             response['message'] = "Failed to load user into database"
 
 
-@app.route("/user/<int:user_id>", methods=["GET"])
-def get_user(user_id):
+@app.route("/user/<int:user_id>", methods=["GET", "PUT", "DELETE"])
+def user(user_id):
     response = {}
-    with sqlite3.connect("SMP.db") as conn:
-        conn.row_factory = dict_factory
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE user_id=" + str(user_id))
+    if request.method == "GET":
+        with sqlite3.connect("SMP.db") as conn:
+            conn.row_factory = dict_factory
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users WHERE user_id=" + str(user_id))
 
-        user = cursor.fetchone()
+            user = cursor.fetchone()
 
-        response['status_code'] = 201
-        response['data'] = user
-        response['message'] = "User retrieved successfully."
-        return response
+            response['status_code'] = 201
+            response['data'] = user
+            response['message'] = "User retrieved successfully."
+            return response
+    if request.method == "PUT":
+        try:
+            name = request.json['name']
+            surname = request.json['surname']
+            email = request.json['email']
+            password = request.json['password']
+            location_id = request.json['location_id']
+
+            with sqlite3.connect("SMP.db") as conn:
+                cursor = conn.cursor()
+                cursor.execute("UPDATE users SET name=? AND surname=? AND email=? AND password=? AND location_id=? "
+                               "WHERE user_id=?", (name, surname, email, password, location_id, str(user_id)))
+                conn.commit()
+                response['message'] = "User was successfully updated"
+                response['status_code'] = 201
+
+        except ValueError:
+            pass
+
 
 
 if __name__ == "__main__":
