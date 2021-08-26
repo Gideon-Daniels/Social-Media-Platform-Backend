@@ -9,13 +9,29 @@ import cloudinary
 import cloudinary.uploader
 
 
-
 # Global functions
 def dict_factory(cursor, row):
     d = {}
     for idx, col in enumerate(cursor.description):
         d[col[0]] = row[idx]
     return d
+
+
+def validate_string(*string):
+    flag = False
+    for x in string:
+        if isinstance(x, str):
+            flag = True
+        else:
+            flag = False
+    return flag
+
+
+def validate_integer(integer):
+    if isinstance(integer, (int, float)):
+        return True
+    else:
+        return False
 
 
 def validate_email(email):
@@ -76,16 +92,45 @@ def init_users_table():
     with sqlite3.connect("SMP.db") as conn:
         conn.execute("CREATE TABLE IF NOT EXISTS users("
                      "user_id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                     "name,"
-                     "surname,"
-                     "password,"
-                     "email,"
-                     "location_id,"
+                     "name TEXT NOT NULL,"
+                     "surname TEXT NOT NULL,"
+                     "password TEXT NOT NULL,"
+                     "email TEXT NOT NULL,"
+                     "location_id TEXT NOT NULL,"
                      "FOREIGN KEY (location_id) REFERENCES locations(location_id))")
         print("users table created successfully")
 
 
 init_users_table()
+
+
+def init_files_table():
+    with sqlite3.connect("SMP.db") as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS files("
+                     "file_id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                     "user_id TEXT NOT NULL,"
+                     "title TEXT NOT NULL,"
+                     "description TEXT NOT NULL,"
+                     "format TEXT NOT NULL,"
+                     "date published DATETIME NOT NULL,"
+                     "FOREIGN KEY (user_id) REFERENCES users(user_id))")
+        print("files table created successfully")
+
+
+init_files_table()
+
+# -----------------------------------------JOINING TABLES-------------------------------------------------------------
+
+
+def location_join_users():
+    with sqlite3.connect("SMP.db") as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users INNER JOIN locations ON users.location_id = locations.location_id")
+        data = cursor.fetchall()
+        print(data)
+
+
+location_join_users()
 
 # ----------------------------------------------------- API SETUP------------------------------------------------------
 app = Flask(__name__)
@@ -114,13 +159,14 @@ def locations():
                 conn.row_factory = dict_factory
                 cursor = conn.cursor()
                 cursor.execute("SELECT * FROM locations")
-                locations = cursor.fetchall()
-
+                location = cursor.fetchall()
                 response['status_code'] = 201
-                response['data'] = locations
+                response['data'] = location
+            return response
         except:
             response['status_code'] = 401
             response['message'] = "Failed to retrieve data"
+            return response
 
     elif request.method == "POST":
         address = request.json['address']
@@ -151,24 +197,90 @@ def locations():
         return response
 
 
-@app.route("/location/<int:location_id>", methods=["GET"])
-def get_location(location_id):
+@app.route("/location/<int:location_id>", methods=["GET", "PUT", "DELETE"])
+def location(location_id):
     response = {}
-    if request.method == ["GET"]:
+    if request.method == "GET":
         with sqlite3.connect("SMP.db") as conn:
             conn.row_factory = dict_factory
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM locations WHERE location_id=" + str(location_id))
 
             location = cursor.fetchone()
+            if location is not None:
+                response['status_code'] = 201
+                response['data'] = location
+                response['message'] = "Location retrieved successfully."
+                return response
+            else:
+                response['status_code'] = 401
+                response['message'] = "Location doesn't not exist"
+                return response
 
-            response['status_code'] = 201
-            response['data'] = location
-            response['message'] = "Location retrieved successfully."
-            return response
+    elif request.method == "PUT":
+        with sqlite3.connect('SMP.db') as conn:
+            incoming_data = dict(request.json)
+            put_data = {}
+
+            if incoming_data.get("address") is not None:
+                put_data["address"] = incoming_data.get("address")
+                with sqlite3.connect('SMP.db') as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE locations SET address=? WHERE location_id=?", (put_data["address"]
+                                                                                          , location_id))
+                    conn.commit()
+                    response['address'] = "Address Updated successfully"
+                    response['status_code'] = 201
+
+            elif incoming_data.get("suburb") is not None:
+                put_data["suburb"] = incoming_data.get("suburb")
+                with sqlite3.connect('SMP.db') as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE locations SET suburb=? WHERE location_id=?", (put_data["suburb"],
+                                                                                         location_id))
+                    conn.commit()
+                    response['suburb'] = "suburb Updated successfully"
+                    response['status_code'] = 201
+
+            elif incoming_data.get("postal_code") is not None:
+                put_data["postal_code"] = incoming_data.get("postal_code")
+                if validate_integer(put_data["postal_code"] is True):
+                    with sqlite3.connect('SMP.db') as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE locations SET postal_code=? WHERE location_id=?", (put_data["postal_code"],
+                                                                                                  location_id))
+                        conn.commit()
+                        response['postal_code'] = "Postal code Updated successfully"
+                        response['status_code'] = 201
+
+            elif incoming_data.get("city") is not None:
+                put_data["city"] = incoming_data.get("city")
+                with sqlite3.connect('SMP.db') as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE locations SET city=? WHERE location_id=?", (put_data["city"],
+                                                                                         location_id))
+                    conn.commit()
+                    response['city'] = "City Updated successfully"
+                    response['status_code'] = 201
+
+            elif incoming_data.get("province") is not None:
+                put_data["province"] = incoming_data.get("province")
+                with sqlite3.connect('SMP.db') as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE locations SET province=? WHERE location_id=?", (put_data["province"],
+                                                                                         location_id))
+                    conn.commit()
+                    response['province'] = "province Updated successfully"
+                    response['status_code'] = 201
+
+            else:
+                response['message'] = "Updates were unsuccessful."
+                response['status_code'] = 401
+        return response
+
     else:
         response['status_code'] = 501
-        response['message'] = "Invalid method selected"
+        response['message'] = "Method is not allowed"
         return response
 
 
@@ -193,11 +305,12 @@ def user_registration():
         email = request.json["email"]
         password = request.json["password"]
 
-        if validate_email(email) is True:
+        if validate_email(email) is True and validate_string(email, password):
             with sqlite3.connect("SMP.db") as conn:
                 conn.row_factory = dict_factory
                 cursor = conn.cursor()
-                cursor.execute("SELECT * FROM users WHERE email=?AND password=?", (email, password))
+                cursor.execute("SELECT * FROM users INNER JOIN locations ON users.location_id = locations.location_id "
+                               "WHERE email=?AND password=?", (email, password))
                 user = cursor.fetchone()
 
             response['status_code'] = 201
@@ -205,7 +318,14 @@ def user_registration():
             response['message'] = 'Successfully logged In'
             return response
         elif validate_email(email) is None:
-            pass
+            response['status_code'] = 401
+            response['message'] = "Enter valid email"
+            return response
+
+        elif not validate_string(email, password):
+            response['status_code'] = 401
+            response['message'] = "Please enter string values"
+            return response
 
     # Register
     elif request.method == "POST":
@@ -215,18 +335,23 @@ def user_registration():
             password = request.json['password']
             email = request.json['email']
             location_id = request.json['location_id']
+
             if validate_email(email) is True:
-                with sqlite3.connect('SMP.db') as conn:
-                    cursor = conn.cursor()
-                    cursor.execute("INSERT INTO users("
-                                   "name,"
-                                   "surname,"
-                                   "password,"
-                                   "email,"
-                                   "location_id) VALUES(?, ?, ?, ?, ?)", (name, surname, password, email, location_id))
-                    conn.commit()
-                    response['message'] = "successfully added new user to database"
-                    response['status_code'] = 201
+                if validate_string(name, surname, password, email, location_id):
+                    with sqlite3.connect('SMP.db') as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("INSERT INTO users("
+                                       "name,"
+                                       "surname,"
+                                       "password,"
+                                       "email,"
+                                       "location_id) VALUES(?, ?, ?, ?, ?)",
+                                       (name, surname, password, email, location_id))
+                        conn.commit()
+                        response['message'] = "successfully added new user to database"
+                        response['status_code'] = 201
+                else:
+                    response["validation"] = "String Validation failed please enter a string"
                 return response
             elif validate_email(email) is None:
                 response['status_code'] = 402
