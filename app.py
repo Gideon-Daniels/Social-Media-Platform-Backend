@@ -9,6 +9,7 @@ import cloudinary
 import cloudinary.uploader
 
 
+
 # Global functions
 def dict_factory(cursor, row):
     d = {}
