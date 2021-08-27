@@ -7,6 +7,7 @@ from flask_jwt import JWT, jwt_required, current_identity
 from flask_cors import CORS
 import cloudinary
 import cloudinary.uploader
+import datetime
 
 
 # Global functions
@@ -52,7 +53,7 @@ def upload_file():
     )
     upload_results = None
     if request.method == 'POST' or request.method == 'PUT' or request.method == 'GET':
-        image = request.json['image']
+        image = request.json['content']
         app.logger.info('%s image_to_upload', image)
         if image:
             upload_results = cloudinary.uploader.upload(image)
@@ -110,14 +111,23 @@ def init_files_table():
                      "file_id INTEGER PRIMARY KEY AUTOINCREMENT,"
                      "user_id TEXT NOT NULL,"
                      "title TEXT NOT NULL,"
+                     "content,"
                      "description TEXT NOT NULL,"
                      "format TEXT NOT NULL,"
-                     "date published DATETIME NOT NULL,"
+                     "date_published DATETIME NOT NULL,"
                      "FOREIGN KEY (user_id) REFERENCES users(user_id))")
         print("files table created successfully")
 
 
 init_files_table()
+
+
+# def drop_table():
+#     with sqlite3.connect("SMP.db") as conn:
+#         conn.execute("DROP TABLE files")
+#         conn.commit()
+#         print("Table dropped")
+# drop_table()
 
 # -----------------------------------------JOINING TABLES-------------------------------------------------------------
 
@@ -134,6 +144,7 @@ class JoinedTables:
                            "WHERE email=?AND password=?", (self.email, self.password))
             user_data = cursor.fetchone()
             return user_data
+
 
 # -------------------------------------------All Classes ------------------------------------------
 
@@ -190,9 +201,10 @@ class Locations:
 
 
 class Files:
-    def __init__(self, users_id, title, description, file_format, date_published):
+    def __init__(self, users_id, title, content, description, file_format, date_published):
         self.users_id = users_id
         self.title = title
+        self.content = content
         self.description = description
         self.file_format = file_format
         self.date_published = date_published
@@ -200,14 +212,16 @@ class Files:
     def register_file(self):
         with sqlite3.connect('SMP.db') as conn:
             cursor = conn.cursor()
-            cursor.execute("INSERT INTO users("
+            cursor.execute("INSERT INTO files("
                            "user_id,"
                            "title,"
+                           "content,"
                            "description,"
                            "format,"
-                           "date published,"
-                           "location_id) VALUES(?, ?, ?, ?, ?, ?)",
-                           (self.users_id, self.title, self.description, self.file_format, self.date_published))
+                           "date_published"
+                           ") VALUES(?, ?, ?, ?, ?, ?)",
+                           (self.users_id, self.title, self.content, self.description, self.file_format,
+                            self.date_published))
             conn.commit()
 
 
@@ -315,8 +329,9 @@ def location(location_id):
                 if validate_integer(put_data["postal_code"] is True):
                     with sqlite3.connect('SMP.db') as conn:
                         cursor = conn.cursor()
-                        cursor.execute("UPDATE locations SET postal_code=? WHERE location_id=?", (put_data["postal_code"],
-                                                                                                  location_id))
+                        cursor.execute("UPDATE locations SET postal_code=? WHERE location_id=?",
+                                       (put_data["postal_code"],
+                                        location_id))
                         conn.commit()
                         response['postal_code'] = "Postal code Updated successfully"
                         response['status_code'] = 201
@@ -326,7 +341,7 @@ def location(location_id):
                 with sqlite3.connect('SMP.db') as conn:
                     cursor = conn.cursor()
                     cursor.execute("UPDATE locations SET city=? WHERE location_id=?", (put_data["city"],
-                                                                                         location_id))
+                                                                                       location_id))
                     conn.commit()
                     response['city'] = "City Updated successfully"
                     response['status_code'] = 201
@@ -336,7 +351,7 @@ def location(location_id):
                 with sqlite3.connect('SMP.db') as conn:
                     cursor = conn.cursor()
                     cursor.execute("UPDATE locations SET province=? WHERE location_id=?", (put_data["province"],
-                                                                                         location_id))
+                                                                                           location_id))
                     conn.commit()
                     response['province'] = "province Updated successfully"
                     response['status_code'] = 201
@@ -513,10 +528,76 @@ def user(user_id):
         return response
 
 
+# ------------------------------------------Users Files---------------------------------------------------------
 @app.route('/files/', methods=["GET", "POST"])
 def files():
     response = {}
+    if request.method == "POST":
+        user_id = request.json['user_id']
+        title = request.json['title']
+        content = upload_file()
+        description = request.json['description']
+        file_format = request.json['format']
+        date_published = datetime.datetime.now()
 
+        obj_files = Files(user_id, title, content, description, file_format, date_published)
+        obj_files.register_file()
+
+        response['message'] = "File registered successfully"
+        response['status_code'] = 201
+
+    elif request.method == "GET":
+        with sqlite3.connect("SMP.db") as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM files")
+
+            all_files = cursor.fetchall()
+
+            response['message'] = "Files retrieved successfully"
+            response['status_code'] = 201
+            response['data'] = all_files
+    else:
+        response['message'] = "Invalid method selected"
+        response['status_code'] = 401
+    return response
+
+
+@app.route("/file/<int:user_id>", methods=['GET', 'PUT', 'DELETE'])
+def users_file(user_id):
+    response = {}
+    if request.method == "GET":
+        with sqlite3.connect("SMP.db") as conn:
+            conn.row_factory = dict_factory
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM files WHERE user_id=" + str(user_id))
+
+            user_file = cursor.fetchall()
+
+            response['message'] = "Users File retrieved successfully"
+            response['status_code'] = 201
+            response['data'] = user_file
+    elif request.method == "DELETE":
+        with sqlite3.connect("SMP.db") as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE * FROM files WHERE user_id=" + str(user_id))
+            conn.commit()
+
+            response['message'] = "Users file deleted successfully"
+            response['status_code'] = 201
+
+    elif request.method == "PUT":
+        with sqlite3.connect("SMP.db") as conn:
+            incoming_data = dict(request.json)
+            put_data = {}
+
+            if incoming_data.get("title") is not None:
+                put_data["title"] = incoming_data.get("title")
+                with sqlite3.connect('SMP.db') as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE files SET title=? WHERE user_id=?", (put_data["title"], user_id))
+                    conn.commit()
+                    response['title'] = "Users title Updated successfully"
+                    response['status_code'] = 201
     return response
 
 
