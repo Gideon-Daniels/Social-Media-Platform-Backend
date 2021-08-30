@@ -259,12 +259,69 @@ class Post:
             conn.commit()
 
 
+# -------------------------------------------CREATING JWT TOKEN-----------------
+class JWTUser(object):
+    def __init__(self, id, email, password):
+        self.id = id
+        self.email = email
+        self.password = password
+
+    def __str__(self):
+        return "User(id='%s')" % self.id
+
+
+def fetch_user():
+    with sqlite3.connect("SMP.db") as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users")
+        users = cursor.fetchall()
+
+        new_data = []
+
+        for data in users:
+            new_data.append(JWTUser(data[0], data[4], data[3]))
+        return new_data
+
+
+users = fetch_user()
+
+# users = [
+#     JWTUser(1, 'user1', 'abcxyz'),
+#     JWTUser(2, 'user2', 'abcxyz'),
+# ]
+
+email_table = {u.email: u for u in users}
+userid_table = {u.id: u for u in users}
+
+
+def authenticate(email, password):
+    email = email_table.get(email, None)
+    if email and hmac.compare_digest(email.password.encode("utf-8"), password.encode('utf-8')):
+        return email
+
+
+def identity(payload):
+    user_id = payload['identity']
+    return userid_table.get(user_id, None)
+
+
 # ----------------------------------------------------- API SETUP------------------------------------------------------
 
 
 app = Flask(__name__)
 CORS(app)
 app.debug = True
+# authenticate a token , making my app secure
+app.config['SECRET_KEY'] = 'super-secret'
+jwt = JWT(app, authenticate, identity)
+# configuration for sending emails
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USERNAME'] = 'ashwinjansen.dragoonix@gmail.com'
+app.config['MAIL_PASSWORD'] = 'ashwinjansen9x#'  # enter password
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
+mail = Mail(app)
 
 
 # -------------------------------------------------------ROUTES--------------------------------------------------------
@@ -276,6 +333,13 @@ def welcome():
         response["message"] = "Welcome"
         response["status_code"] = 201
         return response
+
+
+# -----------------------------------JWT ROUTE------------------
+@app.route('/protected')
+@jwt_required()
+def protected():
+    return '%s' % current_identity
 
 
 # ---------------------------------------locations route---------------------------------------------------------
