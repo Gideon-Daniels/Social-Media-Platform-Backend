@@ -5,6 +5,7 @@ import sqlite3
 from flask import Flask, request, jsonify
 from flask_jwt import JWT, jwt_required, current_identity
 from flask_cors import CORS
+from flask_mail import Mail, Message
 import cloudinary
 import cloudinary.uploader
 import datetime
@@ -122,6 +123,20 @@ def init_files_table():
 init_files_table()
 
 
+def init_post_table():
+    with sqlite3.connect("SMP.db") as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS posts("
+                     "post_id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                     "user_id TEXT NOT NULL,"
+                     "title TEXT NOT NULL,"
+                     "content TEXT NOT NULL,"
+                     "date_published DATETIME NOT NULL,"
+                     "FOREIGN KEY(user_id) REFERENCES users(user_id))")
+        print("post table created successfully")
+
+
+init_post_table()
+
 # def drop_table():
 #     with sqlite3.connect("SMP.db") as conn:
 #         conn.execute("DROP TABLE files")
@@ -225,6 +240,25 @@ class Files:
             conn.commit()
 
 
+class Post:
+    def __init__(self, user_id, title, content, date_published):
+        self.user_id = user_id
+        self.title = title
+        self.content = content
+        self.date_published = date_published
+
+    def add_post(self):
+        with sqlite3.connect('SMP.db') as conn:
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO posts("
+                           "user_id,"
+                           "title,"
+                           "content,"
+                           "date_published) VALUES(?, ?, ?, ?)",
+                           (self.user_id, self.title, self.content, self.date_published))
+            conn.commit()
+
+
 # ----------------------------------------------------- API SETUP------------------------------------------------------
 
 
@@ -235,6 +269,7 @@ app.debug = True
 
 # -------------------------------------------------------ROUTES--------------------------------------------------------
 @app.route('/', methods=["GET"])
+# home screen
 def welcome():
     response = {}
     if request.method == "GET":
@@ -247,7 +282,7 @@ def welcome():
 @app.route('/locations/', methods=["POST", "GET"])
 def locations():
     response = {}
-
+    # retrieves users locations data
     if request.method == "GET":
         try:
             with sqlite3.connect("SMP.db") as conn:
@@ -262,7 +297,7 @@ def locations():
             response['status_code'] = 401
             response['message'] = "Failed to retrieve data"
             return response
-
+    # add users location data to locations table
     elif request.method == "POST":
         address = request.json['address']
         suburb = request.json['suburb']
@@ -283,6 +318,7 @@ def locations():
 @app.route("/location/<int:location_id>", methods=["GET", "PUT", "DELETE"])
 def location(location_id):
     response = {}
+    # retrieves users location data
     if request.method == "GET":
         with sqlite3.connect("SMP.db") as conn:
             conn.row_factory = dict_factory
@@ -298,7 +334,7 @@ def location(location_id):
                 response['status_code'] = 401
                 response['message'] = "Location doesn't not exist"
                 return response
-
+    # updates users location
     elif request.method == "PUT":
         with sqlite3.connect('SMP.db') as conn:
             incoming_data = dict(request.json)
@@ -442,6 +478,7 @@ def user_registration():
 @app.route("/user/<int:user_id>", methods=["GET", "PUT", "DELETE"])
 def user(user_id):
     response = {}
+    # retrieves users details
     if request.method == "GET":
         with sqlite3.connect("SMP.db") as conn:
             conn.row_factory = dict_factory
@@ -459,7 +496,7 @@ def user(user_id):
                 response['status_code'] = 209
                 response['message'] = "User doesn't exist."
                 return response
-
+    # updates users details
     elif request.method == "PUT":
         with sqlite3.connect('SMP.db') as conn:
             incoming_data = dict(request.json)
@@ -508,7 +545,7 @@ def user(user_id):
                 response['message'] = "Updates were unsuccessful."
                 response['status_code'] = 401
         return response
-
+    # deletes user
     elif request.method == "DELETE":
         try:
             with sqlite3.connect('SMP.db') as conn:
@@ -532,6 +569,7 @@ def user(user_id):
 @app.route('/files/', methods=["GET", "POST"])
 def files():
     response = {}
+    # add information to files table
     if request.method == "POST":
         user_id = request.json['user_id']
         title = request.json['title']
@@ -545,7 +583,7 @@ def files():
 
         response['message'] = "File registered successfully"
         response['status_code'] = 201
-
+    # retrieves all files from files table
     elif request.method == "GET":
         with sqlite3.connect("SMP.db") as conn:
             cursor = conn.cursor()
@@ -562,29 +600,31 @@ def files():
     return response
 
 
-@app.route("/file/<int:user_id>", methods=['GET', 'PUT', 'DELETE'])
-def users_file(user_id):
+@app.route("/file/<int:user_id>/<int:file_id>", methods=['GET', 'PUT', 'DELETE'])
+def users_file(user_id, file_id):
     response = {}
+    # retrieves users file
     if request.method == "GET":
         with sqlite3.connect("SMP.db") as conn:
             conn.row_factory = dict_factory
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM files WHERE user_id=" + str(user_id))
+            cursor.execute("SELECT * FROM files WHERE file_id=? AND user_id=?", (str(file_id), str(user_id)))
 
             user_file = cursor.fetchall()
 
             response['message'] = "Users File retrieved successfully"
             response['status_code'] = 201
             response['data'] = user_file
+    # deletes users file
     elif request.method == "DELETE":
         with sqlite3.connect("SMP.db") as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE * FROM files WHERE user_id=" + str(user_id))
+            cursor.execute("DELETE * FROM files WHERE file_id=? AND user_id=?", (str(file_id), str(user_id)))
             conn.commit()
 
             response['message'] = "Users file deleted successfully"
             response['status_code'] = 201
-
+    # updates users file
     elif request.method == "PUT":
         with sqlite3.connect("SMP.db") as conn:
             incoming_data = dict(request.json)
@@ -594,10 +634,85 @@ def users_file(user_id):
                 put_data["title"] = incoming_data.get("title")
                 with sqlite3.connect('SMP.db') as conn:
                     cursor = conn.cursor()
-                    cursor.execute("UPDATE files SET title=? WHERE user_id=?", (put_data["title"], user_id))
+                    cursor.execute("UPDATE files SET title=? WHERE user_id=? AND file_id=?", (put_data["title"]
+                                                                                              , user_id, file_id))
                     conn.commit()
                     response['title'] = "Users title Updated successfully"
                     response['status_code'] = 201
+    return response
+
+
+# -------------------------------------------------USERS POSTS------------------------------------------
+@app.route('/posts/', methods=["POST", "GET"])
+def posts():
+    response = {}
+    # retrieves posts from table
+    if request.method == "GET":
+        with sqlite3.connect("SMP.db") as conn:
+            conn.row_factory = dict_factory
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM posts")
+            posts = cursor.fetchall()
+            response["status_code"] = 201
+            response['data'] = posts
+    #  adds posts to table
+    elif request.method == "POST":
+        user_id = request.json['user_id']
+        title = request.json['title']
+        content = request.json['content']
+        date_published = datetime.datetime.now()
+
+        posts_obj = Post(user_id, title, content, date_published)
+        posts_obj.add_post()
+
+        response['message'] = "Post Added Successfully"
+        response['status_code'] = 201
+
+    else:
+        response['message'] = "Invalid method selected"
+        response['status_code'] = 401
+
+    return response
+
+
+@app.route("/post/<int:user_id>/<int:post_id>", methods=['GET', 'PUT', 'DELETE'])
+def users_post(post_id, user_id):
+    response = {}
+    # retrieves post
+    if request.method == "GET":
+        with sqlite3.connect("SMP.db") as conn:
+            conn.row_factory = dict_factory
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM posts WHERE post_id = ? AND user_id=?", (str(post_id), str(user_id)))
+            user_post = cursor.fetchall()
+            conn.commit()
+
+            response['message'] = "Users post retrieved successfully"
+            response['status_code'] = 201
+            response['data'] = user_post
+    elif request.method == "DELETE":
+        with sqlite3.connect("SMP.db") as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE * FROM posts WHERE post_id = ? AND user_id=?", (str(post_id), str(user_id)))
+    # updates post
+    elif request.method == "PUT":
+        with sqlite3.connect('SMP.db') as conn:
+            incoming_data = dict(request.json)
+            put_data = {}
+
+            if incoming_data.get("title") is not None:
+                put_data['title'] = incoming_data.get("title")
+                with sqlite3.connect("SMP.db") as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE posts set title=? WHERE post_id = ? AND user_id=?",
+                                   (put_data["title"], str(post_id), str(user_id)))
+                    conn.commit()
+                    response['title'] = "Post title updated successfully"
+                    response['status_code'] = 201
+    else:
+        response['message'] = "Invalid method"
+        response["status_code"] = 201
+
     return response
 
 
