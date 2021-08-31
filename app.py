@@ -343,8 +343,9 @@ def protected():
 
 
 # ---------------------------------------locations route---------------------------------------------------------
-@cross_origin()
+
 @app.route('/locations/', methods=["POST", "GET"])
+@cross_origin()
 def locations():
     response = {}
     # retrieves users locations data
