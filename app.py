@@ -98,7 +98,7 @@ def init_users_table():
                      "surname TEXT NOT NULL,"
                      "password TEXT NOT NULL,"
                      "email TEXT NOT NULL,"
-                     "location_id TEXT NOT NULL,"
+                     "location_id TEXTz NOT NULL,"
                      "FOREIGN KEY (location_id) REFERENCES locations(location_id))")
         print("users table created successfully")
 
@@ -512,10 +512,15 @@ def user_registration():
             surname = request.json['surname']
             password = request.json['password']
             email = request.json['email']
-            location_id = request.json['location_id']
 
             if validate_email(email) is True:
-                if validate_string(name, surname, password, email, location_id):
+                with sqlite3.connect('SMP.db') as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT * FROM users")
+                    users = cursor.fetchall()
+                    length_of_users = len(users)
+                    location_id = length_of_users + 1
+                if validate_string(name, surname, password, email):
 
                     user_obj = Users(name, surname, email, password, location_id)
                     user_obj.register_user()
