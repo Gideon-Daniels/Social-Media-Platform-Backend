@@ -4,7 +4,7 @@ import smtplib
 import sqlite3
 from flask import Flask, request, jsonify
 from flask_jwt import JWT, jwt_required, current_identity
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from flask_mail import Mail, Message
 import cloudinary
 import cloudinary.uploader
@@ -343,6 +343,7 @@ def protected():
 
 
 # ---------------------------------------locations route---------------------------------------------------------
+@cross_origin()
 @app.route('/locations/', methods=["POST", "GET"])
 def locations():
     response = {}
@@ -468,6 +469,7 @@ def location(location_id):
 
 
 # -------------------------------------------------Users route----------------------------------------------------
+
 @app.route("/users/", methods=["GET", "POST", "PATCH"])
 def user_registration():
     response = {}
