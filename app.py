@@ -45,6 +45,29 @@ def validate_email(email):
         return None
 
 
+def upload_profile_picture():
+    app.logger.info('upload in route')
+    cloudinary.config(
+        cloud_name='dnuer7lrl',
+        api_key='938329564673713',
+        api_secret='8yTINboBmMjlnbV54kt4ILtVdZM'
+    )
+    upload_results = None
+    if request.method == 'POST' or request.method == 'PUT' or request.method == 'GET':
+        image = request.json['profile_picture']
+        app.logger.info('%s image_to_upload', image)
+        if image:
+            upload_results = cloudinary.uploader.upload(image)
+            app.logger.info(upload_results)
+            return upload_results['url']
+        else:
+            message = "This is not an image"
+            return message
+    else:
+        message = "wrong method is being used"
+        return message
+
+
 def upload_file():
     app.logger.info('upload in route')
     cloudinary.config(
@@ -61,12 +84,11 @@ def upload_file():
             app.logger.info(upload_results)
             return upload_results['url']
         else:
-            message = "This is not an image"
+            message = "This is not an file"
             return message
     else:
         message = "wrong method is being used"
         return message
-
 
 # ---------------------------------------------Creating Tables---------------------------------------------------------
 # Functions to create locations table
@@ -525,7 +547,7 @@ def user_registration():
             surname = request.json['surname']
             password = request.json['password']
             email = request.json['email']
-            profile_picture = upload_file()
+            profile_picture = upload_profile_picture()
             if validate_email(email) is True:
                 with sqlite3.connect('SMP.db') as conn:
                     cursor = conn.cursor()
