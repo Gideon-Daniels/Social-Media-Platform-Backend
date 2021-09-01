@@ -186,7 +186,7 @@ class Users:
                            "password,"
                            "email,"
                            "profile_picture"
-                           "location_id) VALUES(?, ?, ?, ?, ?)",
+                           "location_id) VALUES(?, ?, ?, ?, ?, ?)",
                            (self.name, self.surname, self.password, self.email, self.profile_picture, self.location_id))
             conn.commit()
 
