@@ -137,12 +137,16 @@ def init_post_table():
 
 init_post_table()
 
-# def drop_table():
-#     with sqlite3.connect("SMP.db") as conn:
-#         conn.execute("DROP TABLE files")
-#         conn.commit()
-#         print("Table dropped")
-# drop_table()
+
+def add_column():
+    with sqlite3.connect("SMP.db") as conn:
+        conn.execute("ALTER TABLE users ADD COLUMN profile_picture TEXT")
+        conn.commit()
+        print("Added column ")
+
+
+# add_column()
+
 
 # -----------------------------------------JOINING TABLES-------------------------------------------------------------
 
@@ -165,12 +169,13 @@ class JoinedTables:
 
 
 class Users:
-    def __init__(self, name, surname, email, password, location_id):
+    def __init__(self, name, surname, email, password, location_id, profile_picture):
         self.name = name
         self.surname = surname
         self.email = email
         self.password = password
         self.location_id = location_id
+        self.profile_picture = profile_picture
 
     def register_user(self):
         with sqlite3.connect('SMP.db') as conn:
@@ -180,8 +185,9 @@ class Users:
                            "surname,"
                            "password,"
                            "email,"
+                           "profile_picture"
                            "location_id) VALUES(?, ?, ?, ?, ?)",
-                           (self.name, self.surname, self.password, self.email, self.location_id))
+                           (self.name, self.surname, self.password, self.email, self.profile_picture, self.location_id))
             conn.commit()
 
 
@@ -519,7 +525,7 @@ def user_registration():
             surname = request.json['surname']
             password = request.json['password']
             email = request.json['email']
-
+            profile_picture = upload_file()
             if validate_email(email) is True:
                 with sqlite3.connect('SMP.db') as conn:
                     cursor = conn.cursor()
@@ -529,7 +535,7 @@ def user_registration():
                     location_id = length_of_users + 1
                 if validate_string(name, surname, password, email):
 
-                    user_obj = Users(name, surname, email, password, location_id)
+                    user_obj = Users(name, surname, email, password, location_id, profile_picture)
                     user_obj.register_user()
 
                     response['message'] = "successfully added new user to database"
@@ -616,6 +622,15 @@ def user(user_id):
                     cursor.execute("UPDATE users SET password=? WHERE user_id=?", (put_data["password"], user_id))
                     conn.commit()
                     response['password'] = "Password Updated successfully"
+                    response['status_code'] = 201
+
+            elif incoming_data.get("profile_picture") is not None:
+                put_data["profile_picture"] = incoming_data.get("profile_picture")
+                with sqlite3.connect('SMP.db') as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE users SET profile_picture=? WHERE user_id=?", (put_data["profile_picture"], user_id))
+                    conn.commit()
+                    response['profile_picture'] = "Profile picture Updated successfully"
                     response['status_code'] = 201
             else:
                 response['message'] = "Updates were unsuccessful."
