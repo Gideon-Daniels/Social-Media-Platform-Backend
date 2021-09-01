@@ -398,11 +398,13 @@ def locations():
         city = request.json['city']
         postal_code = request.json['postal_code']
         province = request.json['province']
-
-        locations_obj = Locations(address, suburb, city, postal_code, province)
-        response = locations_obj.register_location()
+        if address == '' or suburb == '' or city == '' or province == '':
+            response['message'] = "Please Enter All required inputs"
+            response['status_code'] = 401
+        else:
+            locations_obj = Locations(address, suburb, city, postal_code, province)
+            response = locations_obj.register_location()
         return response
-
     else:
         response['status_code'] = 501
         response['message'] = "Invalid method selected"
