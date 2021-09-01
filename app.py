@@ -470,7 +470,7 @@ def location(location_id):
 
 
 # -------------------------------------------------Users route----------------------------------------------------
-
+@cross_origin()
 @app.route("/users/", methods=["GET", "POST", "PATCH"])
 def user_registration():
     response = {}
