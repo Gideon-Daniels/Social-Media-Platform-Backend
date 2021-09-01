@@ -98,7 +98,7 @@ def init_users_table():
                      "surname TEXT NOT NULL,"
                      "password TEXT NOT NULL,"
                      "email TEXT NOT NULL,"
-                     "location_id TEXTz NOT NULL,"
+                     "location_id TEXT NOT NULL,"
                      "FOREIGN KEY (location_id) REFERENCES locations(location_id))")
         print("users table created successfully")
 
@@ -492,10 +492,14 @@ def user_registration():
         password = request.json["password"]
 
         if validate_email(email) is True and validate_string(email, password):
-            table = JoinedTables(email, password)
-            users_data = table.location_join_users()
+            with sqlite3.connect("SMP.db") as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM users INNER JOIN locations ON users.location_id = locations.location_id "
+                               "WHERE email=?AND password=?", (email, password))
+                user_data = cursor.fetchone()
+
             response['status_code'] = 201
-            response['data'] = users_data
+            response['data'] = user_data
             response['message'] = 'Successfully logged In'
             return response
         elif validate_email(email) is None:
