@@ -90,6 +90,18 @@ def upload_file():
         message = "wrong method is being used"
         return message
 
+
+def check_if_email_exist(email):
+    with sqlite3.connect("SMP.db") as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users where email=?", (email,))
+        emails = cursor.fetchall()
+        count = len(emails)
+        if count >= 1:
+            return True
+        else:
+            return False
+
 # ---------------------------------------------Creating Tables---------------------------------------------------------
 # Functions to create locations table
 def init_locations_table():
@@ -160,11 +172,11 @@ def init_post_table():
 init_post_table()
 
 
-def add_column():
-    with sqlite3.connect("SMP.db") as conn:
-        conn.execute("ALTER TABLE users ADD COLUMN profile_picture TEXT")
-        conn.commit()
-        print("Added column ")
+# def add_column():
+#     with sqlite3.connect("SMP.db") as conn:
+#         conn.execute("ALTER TABLE users ADD COLUMN profile_picture TEXT")
+#         conn.commit()
+#         print("Added column ")
 
 
 # add_column()
@@ -207,7 +219,7 @@ class Users:
                            "surname,"
                            "password,"
                            "email,"
-                           "profile_picture"
+                           "profile_picture,"
                            "location_id) VALUES(?, ?, ?, ?, ?, ?)",
                            (self.name, self.surname, self.password, self.email, self.profile_picture, self.location_id))
             conn.commit()
@@ -557,15 +569,17 @@ def user_registration():
                     users = cursor.fetchall()
                     length_of_users = len(users)
                     location_id = length_of_users + 1
-                if validate_string(name, surname, password, email):
-
+                if check_if_email_exist(email) is True:
+                    response["message"] = "User with this Email already exist"
+                    response['status_code'] = 401
+                else:
+                    print(check_if_email_exist(email))
                     user_obj = Users(name, surname, email, password, location_id, profile_picture)
                     user_obj.register_user()
 
                     response['message'] = "successfully added new user to database"
                     response['status_code'] = 201
-                else:
-                    response["validation"] = "String Validation failed please enter a string"
+
                 return response
             elif validate_email(email) is None:
                 response['status_code'] = 402
@@ -829,6 +843,8 @@ def users_post(post_id, user_id):
         response["status_code"] = 201
 
     return response
+
+
 
 
 if __name__ == "__main__":
