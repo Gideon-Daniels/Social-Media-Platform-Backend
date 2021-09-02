@@ -535,6 +535,7 @@ def user_registration():
 
         if validate_email(email) is True and validate_string(email, password):
             with sqlite3.connect("SMP.db") as conn:
+                conn.row_factory = dict_factory
                 cursor = conn.cursor()
                 cursor.execute("SELECT * FROM users INNER JOIN locations ON users.location_id = locations.location_id "
                                "WHERE email=?AND password=?", (email, password))
