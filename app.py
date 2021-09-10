@@ -730,15 +730,15 @@ def files():
     return response
 
 
-@app.route("/file/<int:user_id>/<int:file_id>", methods=['GET', 'PUT', 'DELETE'])
-def users_file(user_id, file_id):
+@app.route("/file/<int:file_id>", methods=['GET', 'PUT', 'DELETE'])
+def users_file(file_id):
     response = {}
     # retrieves users file
     if request.method == "GET":
         with sqlite3.connect("SMP.db") as conn:
             conn.row_factory = dict_factory
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM files WHERE file_id=? AND user_id=?", (str(file_id), str(user_id)))
+            cursor.execute("SELECT * FROM files WHERE file_id=? ", (str(file_id),))
 
             user_file = cursor.fetchall()
 
@@ -749,7 +749,7 @@ def users_file(user_id, file_id):
     elif request.method == "DELETE":
         with sqlite3.connect("SMP.db") as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE * FROM files WHERE file_id=? AND user_id=?", (str(file_id), str(user_id)))
+            cursor.execute("DELETE * FROM files WHERE file_id=?", (str(file_id),))
             conn.commit()
 
             response['message'] = "Users file deleted successfully"
@@ -764,8 +764,8 @@ def users_file(user_id, file_id):
                 put_data["title"] = incoming_data.get("title")
                 with sqlite3.connect('SMP.db') as conn:
                     cursor = conn.cursor()
-                    cursor.execute("UPDATE files SET title=? WHERE user_id=? AND file_id=?", (put_data["title"]
-                                                                                              , user_id, file_id))
+                    cursor.execute("UPDATE files SET title=? WHERE file_id=?", (put_data["title"]
+                                                                                              , file_id))
                     conn.commit()
                     response['title'] = "Users title Updated successfully"
                     response['status_code'] = 201
@@ -805,25 +805,30 @@ def posts():
     return response
 
 
-@app.route("/post/<int:user_id>/<int:post_id>", methods=['GET', 'PUT', 'DELETE'])
-def users_post(post_id, user_id):
+@app.route("/post/<int:post_id>", methods=['GET', 'PUT', 'DELETE'])
+def users_post(post_id):
     response = {}
     # retrieves post
     if request.method == "GET":
         with sqlite3.connect("SMP.db") as conn:
             conn.row_factory = dict_factory
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM posts WHERE post_id = ? AND user_id=?", (str(post_id), str(user_id)))
+            cursor.execute("SELECT * FROM posts WHERE post_id = ?", (str(post_id), ))
             user_post = cursor.fetchall()
             conn.commit()
 
             response['message'] = "Users post retrieved successfully"
             response['status_code'] = 201
             response['data'] = user_post
+    # Deletes Post
     elif request.method == "DELETE":
         with sqlite3.connect("SMP.db") as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE * FROM posts WHERE post_id = ? AND user_id=?", (str(post_id), str(user_id)))
+            cursor.execute("DELETE FROM posts WHERE post_id = ?", (str(post_id),))
+            conn.commit()
+
+            response['message'] = "Users post deleted successfully"
+            response['status_code'] = 201
     # updates post
     elif request.method == "PUT":
         with sqlite3.connect('SMP.db') as conn:
@@ -834,18 +839,27 @@ def users_post(post_id, user_id):
                 put_data['title'] = incoming_data.get("title")
                 with sqlite3.connect("SMP.db") as conn:
                     cursor = conn.cursor()
-                    cursor.execute("UPDATE posts set title=? WHERE post_id = ? AND user_id=?",
-                                   (put_data["title"], str(post_id), str(user_id)))
+                    cursor.execute("UPDATE posts set title=? WHERE post_id = ?",
+                                   (put_data["title"], str(post_id),))
                     conn.commit()
                     response['title'] = "Post title updated successfully"
                     response['status_code'] = 201
+
+            elif incoming_data.get("content") is not None:
+                put_data['content'] = incoming_data.get("content")
+                with sqlite3.connect("SMP.db") as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE posts set content=? WHERE post_id = ?",
+                                   (put_data["content"], str(post_id),))
+                    conn.commit()
+                    response['content'] = "Post content updated successfully"
+                    response['status_code'] = 201
+
     else:
         response['message'] = "Invalid method"
         response["status_code"] = 201
 
     return response
-
-
 
 
 if __name__ == "__main__":
