@@ -764,8 +764,7 @@ def users_file(file_id):
                 put_data["title"] = incoming_data.get("title")
                 with sqlite3.connect('SMP.db') as conn:
                     cursor = conn.cursor()
-                    cursor.execute("UPDATE files SET title=? WHERE file_id=?", (put_data["title"]
-                                                                                              , file_id))
+                    cursor.execute("UPDATE files SET title=? WHERE file_id=?", (put_data["title"], file_id))
                     conn.commit()
                     response['title'] = "Users title Updated successfully"
                     response['status_code'] = 201
