@@ -595,7 +595,6 @@ def user_registration():
         response['message'] = "Invalid method selected"
         return response
 
-
 @app.route("/user/<int:user_id>", methods=["GET", "PUT", "DELETE"])
 def user(user_id):
     response = {}
@@ -844,12 +843,12 @@ def users_post(post_id):
                     response['title'] = "Post title updated successfully"
                     response['status_code'] = 201
 
-            elif incoming_data.get("content") is not None:
+            if incoming_data.get("content") is not None:
                 put_data['content'] = incoming_data.get("content")
                 with sqlite3.connect("SMP.db") as conn:
                     cursor = conn.cursor()
                     cursor.execute("UPDATE posts set content=? WHERE post_id = ?",
-                                   (put_data["content"], str(post_id),))
+                                   (put_data['content'], str(post_id),))
                     conn.commit()
                     response['content'] = "Post content updated successfully"
                     response['status_code'] = 201
